@@ -24,7 +24,7 @@
 
 - [x] (i) Load, process and prepare the data in Spark
 - [x] (i) Basic EDA
-- [ ] (ii) Build Collaborative Filtering Component (ALS, etc.)
+- [x] (ii) Build Collaborative Filtering Component (ALS, etc.)
 - [ ] (iii) Build Content-Based Component (TF-IDF, LSH, etc.)
 - [ ] (iv) Build recommendation fusion strategy
 - [ ] (v) Evaluate system using Precision@K, Recall@K, NDCG@K
