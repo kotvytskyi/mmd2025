@@ -41,16 +41,6 @@
 
 ---
 
-## Project Structure
-
-```
-├── part1/                  # Stream processing tasks
-├── part2/
-│   ├── EDA.ipynb          # Exploratory Data Analysis
-│   └── data (ignored)/              # https://www.kaggle.com/datasets/odedgolden/movielens-1m-dataset
-└── README.md
-```
-
 ## EDA Summary
 
 - **Users:** 6,040 users with demographics (gender, age, occupation, zip code)
