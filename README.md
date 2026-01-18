@@ -51,3 +51,14 @@
   - Most rated movie: American Beauty (3,428 ratings)
   - Top genres by rating count: Comedy, Drama, Action
   - Top genres by avg rating: Film-Noir, Documentary, War
+
+---
+
+## Running project locally
+
+```shell
+uv sync # Install dependencies; this will create a venv under .venv/
+uv run get_data.py # Fetch the dataset
+
+# Open the notebooks and run manually.
+```
