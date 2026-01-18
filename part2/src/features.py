@@ -61,7 +61,7 @@ def build_movie_features(movies, embeddings_df, movies_enriched):
     movies = cv_model.transform(movies)
     
     assembler = VectorAssembler(
-        inputCols=["tf", "year_norm"], #+ actor_cols,
+        inputCols=["tf", "year_norm", "overview_emb"] + actor_cols,
         outputCol="features_raw",
         handleInvalid='skip'
     )
@@ -87,10 +87,11 @@ def build_user_features(train_ratings, movies_profiles):
     
     user_movie_vectors = (
         train_ratings
+        .filter(col("rating") >= config.RELEVANCE_THRESHOLD)
         .join(broadcast(movie_vecs), on='item_id') # this way we hint spark to avoid shuffling large train_ratings array
         .select("user_id", "rating", "features_norm")
     )
-    
+
     user_profiles = (
         user_movie_vectors
         .groupBy("user_id")

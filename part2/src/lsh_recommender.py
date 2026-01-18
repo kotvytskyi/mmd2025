@@ -59,10 +59,6 @@ class LSHRecommender:
             col("datasetB.item_id").alias("item_id"),
             col("distance")
         )
-
-        recommendations.count()  # force eval
-        
-        recommend_time = time.time() - start
         
         already_rated = train_ratings.select("user_id", "item_id")
         recommendations = recommendations.join(
@@ -78,5 +74,9 @@ class LSHRecommender:
             .withColumn("rank", row_number().over(window))
             .filter(col("rank") <= top_k)
         )
+
+        recommendations.count()  # force eval
+        
+        recommend_time = time.time() - start
 
         return ranked_recs, recommend_time

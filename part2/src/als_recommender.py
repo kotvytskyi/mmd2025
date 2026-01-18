@@ -1,6 +1,7 @@
 import time
-from pyspark.sql.functions import col, explode
+from pyspark.sql.functions import col, explode, row_number
 from pyspark.ml.recommendation import ALS
+from pyspark.sql.window import Window
 
 from . import config
 
@@ -43,10 +44,8 @@ class ALSRecommender:
         
         start = time.time()
         
-        als_recs = self.als_model.recommendForUserSubset(users, top_k)
-        als_recs.count()
+        als_recs = self.als_model.recommendForUserSubset(users, top_k + 50)
 
-        recommend_time = time.time() - start
         
         als_recs_flat = (
             als_recs
@@ -64,5 +63,13 @@ class ALSRecommender:
             on=["user_id", "item_id"],
             how="left_anti"
         )
+
+        window = Window.partitionBy("user_id").orderBy(col("score").desc())
+        als_recs_ranked = als_recs_filtered.withColumn("rank", row_number().over(window))
+        als_recs_ranked = als_recs_ranked.filter(col("rank") <= top_k)
+
+        als_recs_ranked.count()
+
+        recommend_time = time.time() - start
         
-        return als_recs_filtered, recommend_time
+        return als_recs_ranked, recommend_time
