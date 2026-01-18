@@ -1,112 +1,74 @@
 """Evaluation metrics for recommendation systems."""
 
-from pyspark.sql.functions import col, sum, avg, count, lit, when, min, max
+from pyspark.sql.functions import col, collect_list, struct, avg, count, min as spark_min, max as spark_max, row_number
+from pyspark.sql.window import Window
+from pyspark.mllib.evaluation import RankingMetrics
 
 from . import config
 
 
-def evaluate_recommendations(recommendations, test_ratings, top_k=config.TOP_K, relevance_threshold=config.RELEVANCE_THRESHOLD):
-    """Evaluate recommendations using precision and recall.
-    
-    Args:
-        recommendations: DataFrame with user_id, item_id, and optionally rank
-        test_ratings: DataFrame with user_id, item_id, rating
-        top_k: Number of recommendations per user (for precision calculation)
-        relevance_threshold: Minimum rating to consider an item relevant
-        
-    Returns:
-        DataFrame with avg_precision and avg_recall
-    """
-    # Join recommendations with test ratings
-    recs_on_rated = (
-        recommendations
-        .join(test_ratings, on=["user_id", "item_id"], how="inner")
-    )
-    
-    # Mark relevant items (rating >= threshold)
-    eval_df = (
-        recs_on_rated
-        .withColumn("relevant", (col("rating") >= relevance_threshold).cast("int"))
-    )
-    
-    # Calculate per-user metrics
-    user_metrics = (
-        eval_df
-        .groupBy("user_id")
-        .agg(
-            (sum("relevant") / lit(top_k)).alias("precision"),
-            sum("relevant").alias("hits"),
-        )
-        .join(
-            test_ratings
-            .filter(col("rating") >= relevance_threshold)
-            .groupBy("user_id")
-            .count()
-            .withColumnRenamed("count", "total_relevant"),
-            on="user_id",
-            how="left"
-        )
-        .fillna(0)
-        .withColumn(
-            "recall",
-            when(col("total_relevant") > 0,
-                 col("hits") / col("total_relevant"))
-            .otherwise(lit(0))
-        )
-    )
-    
-    # Calculate average metrics
-    avg_metrics = user_metrics.agg(
-        avg("precision").alias(f"avg_precision@{top_k}"),
-        avg("recall").alias(f"avg_recall@{top_k}")
-    )
-    
-    return avg_metrics
+def evaluate_recommendations(recommendations, test_ratings, 
+                            precision_k=config.TOP_K_PRECISION, 
+                            recall_k=config.TOP_K_RECALL,
+                            ndcg_k=config.TOP_K_NDCG,
+                            relevance_threshold=config.RELEVANCE_THRESHOLD):
+    max_k = max(precision_k, recall_k, ndcg_k)
 
-
-def coverage_stats(recommendations, test_ratings):
-    """Calculate recommendation coverage statistics.
-    
-    Args:
-        recommendations: DataFrame with user_id, item_id
-        test_ratings: DataFrame with user_id, item_id
-        
-    Returns:
-        Dictionary with coverage statistics
-    """
-    # Users with recommendations
-    total_users_with_recs = recommendations.select("user_id").distinct().count()
-    total_test_users = test_ratings.select("user_id").distinct().count()
-    
-    # Recommendations per user
-    recs_per_user = (
-        recommendations
+    users_with_enough_test_items = (
+        test_ratings
         .groupBy("user_id")
-        .count()
-        .agg(
-            avg("count").alias("avg_recs_per_user"),
-            min("count").alias("min_recs"),
-            max("count").alias("max_recs")
-        )
-        .collect()[0]
+        .agg(count("*").alias("test_count"))
+        .filter(col("test_count") >= precision_k)
+        .select("user_id")
     )
     
-    # Overlap with test set
-    overlap = (
+    test_ratings = test_ratings.join(users_with_enough_test_items, on="user_id", how="inner")
+    
+    recommendations = recommendations.join(users_with_enough_test_items, on="user_id", how="inner")
+    
+    if "distance" in recommendations.columns:
+        ranking_col = col("distance").asc()
+    else:
+        ranking_col = col("score").desc()
+    
+    ranked_recs = (
         recommendations
-        .join(test_ratings, on=["user_id", "item_id"], how="inner")
-        .groupBy("user_id")
-        .count()
-        .agg(avg("count").alias("avg_overlap"))
-        .collect()[0]
+        .withColumn("rank", row_number().over(
+            Window.partitionBy("user_id").orderBy(ranking_col)
+        ))
+        .filter(col("rank") <= max_k)
+        .orderBy("user_id", "rank")
     )
     
-    return {
-        "users_with_recs": total_users_with_recs,
-        "total_users": total_test_users,
-        "coverage_pct": 100.0 * total_users_with_recs / total_test_users if total_test_users > 0 else 0,
-        "avg_recs_per_user": recs_per_user["avg_recs_per_user"],
-        "min_recs": recs_per_user["min_recs"],
-        "max_recs": recs_per_user["max_recs"],
-        "avg_overlap_with_test": overlap["avg_overlap"]
-    }
+    predictions_per_user = (
+        ranked_recs
+        .groupBy("user_id")
+        .agg(collect_list("item_id").alias("predictions"))
+    )
+    
+    relevant_per_user = (
+        test_ratings
+        .filter(col("rating") >= relevance_threshold)
+        .groupBy("user_id")
+        .agg(collect_list("item_id").alias("relevant"))
+    )
+    
+    prediction_and_labels = (
+        predictions_per_user
+        .join(relevant_per_user, on="user_id", how="inner")
+        .select("predictions", "relevant")
+        .rdd
+        .map(lambda row: (row.predictions, row.relevant))
+    )
+    
+    metrics = RankingMetrics(prediction_and_labels)
+    
+    precision_at_k = metrics.precisionAt(precision_k)
+    recall_at_k = metrics.recallAt(recall_k)
+    ndcg_at_k = metrics.ndcgAt(ndcg_k)
+    
+    spark = recommendations.sparkSession
+    return spark.createDataFrame(
+        [(precision_at_k, recall_at_k, ndcg_at_k)],
+        [f"avg_precision@{precision_k}", f"avg_recall@{recall_k}", f"avg_ndcg@{ndcg_k}"]
+    )

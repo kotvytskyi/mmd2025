@@ -30,7 +30,9 @@ ALS_REG_PARAM = 0.05
 ALS_RANK = 15
 
 # Recommendation parameters
-TOP_K = 1000
+TOP_K_PRECISION = 10
+TOP_K_RECALL = 1000
+TOP_K_NDCG = TOP_K_PRECISION
 RELEVANCE_THRESHOLD = 4
 
 # Hybrid fusion
