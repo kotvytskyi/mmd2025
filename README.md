@@ -12,9 +12,9 @@
 
 ### Part 1: Streams (20/80 points)
 
-- [ ] Read user-item data (`u.data` file) as a stream (line by line)
-- [ ] Create a random sample (~10% of movies)
-- [ ] Count approximate number of different users
+- [x] Read user-item data (`u.data` file) as a stream (line by line)
+- [x] Create a random sample (~10% of movies)
+- [x] Count approximate number of different users
 
 **Technologies:** Python with only `random` library (no other imports allowed)
 
