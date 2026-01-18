@@ -24,4 +24,7 @@ for item in os.listdir("temp/ml-1m"):
 shutil.rmtree("temp/")
 os.remove(zip_path)
 
-print(f"Downloaded MovieLens 1M to '{extract_dir}'.")
+shutil.copytree("data/", "part1/data/", dirs_exist_ok=True)
+shutil.copytree("data/", "part2/data/", dirs_exist_ok=True)
+
+print(f"Downloaded MovieLens 1M to '{extract_dir}' and copied the dataset to 'part1/data/' and 'part2/data/'.")
