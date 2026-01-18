@@ -1,11 +1,8 @@
-"""Evaluation metrics for recommendation systems."""
-
 from pyspark.sql.functions import col, collect_list, struct, avg, count, min as spark_min, max as spark_max, row_number
 from pyspark.sql.window import Window
 from pyspark.mllib.evaluation import RankingMetrics
 
 from . import config
-
 
 def evaluate_recommendations(recommendations, test_ratings, 
                             precision_k=config.TOP_K_PRECISION, 

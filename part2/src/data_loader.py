@@ -1,5 +1,3 @@
-"""Data loading and schema definitions."""
-
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 from pyspark.sql.functions import substring, length, split, when, col, array, explode, desc
@@ -8,7 +6,6 @@ from . import config
 
 
 def get_schemas():
-    """Get PySpark schemas for data files."""
     schema_ratings = StructType([
         StructField("user_id", IntegerType(), False),
         StructField("item_id", IntegerType(), False),
@@ -34,7 +31,6 @@ def get_schemas():
 
 
 def load_ratings(spark: SparkSession):
-    """Load train and test ratings."""
     schema_ratings, _, _ = get_schemas()
     
     train_ratings = spark.read.option("delimiter", "::").csv(
@@ -48,7 +44,6 @@ def load_ratings(spark: SparkSession):
 
 
 def load_movies(spark: SparkSession):
-    """Load and preprocess movies data."""
     _, schema_movies, _ = get_schemas()
     
     movies = spark.read.option("delimiter", "::").csv(
@@ -66,7 +61,6 @@ def load_movies(spark: SparkSession):
 
 
 def load_users(spark: SparkSession):
-    """Load and preprocess users data."""
     _, _, schema_users = get_schemas()
     
     users = spark.read.option("delimiter", "::").csv(
@@ -81,7 +75,6 @@ def load_users(spark: SparkSession):
 
 
 def load_embeddings(spark: SparkSession):
-    """Load movie overview embeddings."""
     from pyspark.ml.functions import array_to_vector
     
     embeddings_df = (
@@ -110,7 +103,6 @@ def load_embeddings(spark: SparkSession):
 
 
 def load_enriched_movies(spark: SparkSession):
-    """Load enriched movies data with actors."""
     movies_enriched = (
         spark.read
         .option("header", True)

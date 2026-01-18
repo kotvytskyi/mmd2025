@@ -5,7 +5,6 @@ from pyspark.sql.window import Window
 
 from . import config
 
-
 class ALSRecommender:
     def __init__(
         self,
